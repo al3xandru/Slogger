@@ -266,7 +266,7 @@ class TwitterLogger < Slogger
         if @twitter_config['digest_timeline']
           dated_tweets = split_days(tweets)
           dated_tweets.each {|k,v|
-            content = "## Tweets\n\n### Posts by @#{user} on #{Time.parse(k).strftime(@date_format)}\n\n"
+            content = "# Daily log: Tweets\n\n### Posts by @#{user} on #{Time.parse(k).strftime(@date_format)}\n\n"
             content << digest_entry(v, tags)
             sl.to_dayone({'content' => content, 'datestamp' => Time.parse(k).utc.iso8601})
             if @twitter_config['save_images']
@@ -284,7 +284,7 @@ class TwitterLogger < Slogger
       unless favs.empty?
         dated_tweets = split_days(favs)
         dated_tweets.each {|k,v|
-          content = "## Favorite Tweets\n\n### Favorites from @#{user} on #{Time.parse(k).strftime(@date_format)}\n\n"
+          content = "# Daily log: Favorite tweets\n\n### Favorites from @#{user} on #{Time.parse(k).strftime(@date_format)}\n\n"
           content << digest_entry(v, tags)
           sl.to_dayone({'content' => content, 'datestamp' => Time.parse(k).utc.iso8601})
           if @twitter_config['save_images_from_favorites']

@@ -43,7 +43,11 @@ class PocketLogger < Slogger
     username = config['pocket_username']
     password = config['pocket_passwd']
     tags = "\n\n(#{config['pocket_tags']})\n" unless config['pocket_tags'] == ''
-    today = @timespan
+    #entry_title = "Pocket reading"
+    #if config.key?('pocket_entry_title')
+      #entry_title = config['pocket_entry_title']
+    #end
+    entry_title = (config.key?('pocket_entry_title') && config['pocket_entry_title']) || "Pocket reading"
 
     @log.info("Getting Pocket posts for #{username}")
     output = ''
@@ -81,7 +85,7 @@ class PocketLogger < Slogger
     }
     unless output == ''
       options = {}
-      options['content'] = "## Pocket reading\n\n#{output}#{tags}"
+      options['content'] = "# Daily log: Pocket bookmarks\n\n#{output}#{tags}"
       sl.to_dayone(options)
     end
   end

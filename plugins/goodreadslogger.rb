@@ -19,11 +19,13 @@ config = {
   'description' => ['goodreads_save_image will save the book cover as the main image for the entry',
                     'goodreads_feed is a string containing the RSS feed for your read books',
                     'goodreads_star_posts will create a starred post for new books',
-                    'goodreads_tags are tags you want to add to every entry, e.g. "#social #reading"'],
+                    'goodreads_tags are tags you want to add to every entry, e.g. "#social #reading"',
+                    'goodreads_entry_title allows customizing the entry title'],
   'goodreads_feed' => '',
   'goodreads_save_image' => false,
   'goodreads_star_posts' => false,
-  'goodreads_tags' => '#social #reading'
+  'goodreads_tags' => '#social #reading',
+  'goodreads_entry_title' => ''
 }
 $slog.register_plugin({ 'class' => 'GoodreadsLogger', 'config' => config })
 
@@ -112,7 +114,7 @@ class GoodreadsLogger < Slogger
           content = content != '' ? "\n\n#{content}" : ''
 
           options = {}
-          options['content'] = "Finished reading [#{title}](#{item.elements['link'].cdatas().join})#{content}#{tags}"
+          options['content'] = "Daily activity: Finished reading [#{title}](#{item.elements['link'].cdatas().join})#{content}#{tags}"
           options['datestamp'] = Time.parse(item.elements['pubDate'].text).utc.iso8601
           options['starred'] = starred
           options['uuid'] = %x{uuidgen}.gsub(/-/,'').strip
