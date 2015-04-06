@@ -16,10 +16,13 @@ config = {
   'pocket_description' => [
     'Logs today\'s posts to Pocket.',
     'pocket_username is a string with your Pocket username',
-    'pocket_passwd is a string with your Pocket password'],
+    'pocket_passwd is a string with your Pocket password',
+    'pocket_tags are tags you want to add to every entry, e.g. "#social #reading"',
+    'pocket_entry_title allows customizing the entry title'],
   'pocket_username' => '',
   'pocket_passwd' => '',
-  'pocket_tags' => '#social #reading'
+  'pocket_tags' => '#social #reading',
+  'pocket_entry_title' => 'Pocket reading'
 }
 $slog.register_plugin({ 'class' => 'PocketLogger', 'config' => config })
 
@@ -43,11 +46,6 @@ class PocketLogger < Slogger
     username = config['pocket_username']
     password = config['pocket_passwd']
     tags = "\n\n(#{config['pocket_tags']})\n" unless config['pocket_tags'] == ''
-    #entry_title = "Pocket reading"
-    #if config.key?('pocket_entry_title')
-      #entry_title = config['pocket_entry_title']
-    #end
-    entry_title = (config.key?('pocket_entry_title') && config['pocket_entry_title']) || "Pocket reading"
 
     @log.info("Getting Pocket posts for #{username}")
     output = ''
@@ -85,7 +83,7 @@ class PocketLogger < Slogger
     }
     unless output == ''
       options = {}
-      options['content'] = "# Daily log: Pocket bookmarks\n\n#{output}#{tags}"
+      options['content'] = "# #{config['pocket_entry_title']}\n\n#{output}#{tags}"
       sl.to_dayone(options)
     end
   end

@@ -25,7 +25,7 @@ config = {
   'goodreads_save_image' => false,
   'goodreads_star_posts' => false,
   'goodreads_tags' => '#social #reading',
-  'goodreads_entry_title' => ''
+  'goodreads_entry_title' => 'Finshed reading'
 }
 $slog.register_plugin({ 'class' => 'GoodreadsLogger', 'config' => config })
 
@@ -80,6 +80,7 @@ class GoodreadsLogger < Slogger
 
     tags = @grconfig['goodreads_tags'] || ''
     tags = "\n\n(#{tags})\n" unless tags == ''
+    entry_title = @grconfig['goodreads_entry_title'] || 'Finished reading'
 
     begin
       #rss_content = ""
@@ -114,7 +115,7 @@ class GoodreadsLogger < Slogger
           content = content != '' ? "\n\n#{content}" : ''
 
           options = {}
-          options['content'] = "Daily activity: Finished reading [#{title}](#{item.elements['link'].cdatas().join})#{content}#{tags}"
+          options['content'] = "#{entry_title} [#{title}](#{item.elements['link'].cdatas().join})#{content}#{tags}"
           options['datestamp'] = Time.parse(item.elements['pubDate'].text).utc.iso8601
           options['starred'] = starred
           options['uuid'] = %x{uuidgen}.gsub(/-/,'').strip

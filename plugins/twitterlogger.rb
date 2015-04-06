@@ -21,7 +21,8 @@ config = {
     'save_retweets (true/false) determines whether TwitterLogger will include retweets in the posts for the day',
     'droplr_domain: if you have a custom droplr domain, enter it here, otherwise leave it as d.pr ',
     'digest_timeline: if true will create a single entry for all tweets',
-    'oauth_token and oauth_secret should be left blank and will be filled in by the plugin'],
+    'oauth_token and oauth_secret should be left blank and will be filled in by the plugin',
+    'twitter_entry_prefix allows customizing the entry title'], 
   'twitter_users' => [],
   'save_favorites' => true,
   'save_images' => true,
@@ -33,7 +34,8 @@ config = {
   'exclude_replies' => true,
   'save_retweets' => false,
   #'digest_favorites' => true, # Not implemented yet
-  'digest_timeline' => true
+  'digest_timeline' => true,
+  'twitter_entry_prefix' => ''
 }
 $slog.register_plugin({ 'class' => 'TwitterLogger', 'config' => config })
 
@@ -266,7 +268,7 @@ class TwitterLogger < Slogger
         if @twitter_config['digest_timeline']
           dated_tweets = split_days(tweets)
           dated_tweets.each {|k,v|
-            content = "# Daily log: Tweets\n\n### Posts by @#{user} on #{Time.parse(k).strftime(@date_format)}\n\n"
+            content = "# #{@twitter_config['twitter_entry_prefix']}Tweets\n\n### Posts by @#{user} on #{Time.parse(k).strftime(@date_format)}\n\n"
             content << digest_entry(v, tags)
             sl.to_dayone({'content' => content, 'datestamp' => Time.parse(k).utc.iso8601})
             if @twitter_config['save_images']
@@ -284,7 +286,7 @@ class TwitterLogger < Slogger
       unless favs.empty?
         dated_tweets = split_days(favs)
         dated_tweets.each {|k,v|
-          content = "# Daily log: Favorite tweets\n\n### Favorites from @#{user} on #{Time.parse(k).strftime(@date_format)}\n\n"
+          content = "# #{@twitter_config['twitter_entry_prefix']}Favorite tweets\n\n### Favorites from @#{user} on #{Time.parse(k).strftime(@date_format)}\n\n"
           content << digest_entry(v, tags)
           sl.to_dayone({'content' => content, 'datestamp' => Time.parse(k).utc.iso8601})
           if @twitter_config['save_images_from_favorites']
