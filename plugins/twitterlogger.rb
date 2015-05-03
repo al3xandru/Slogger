@@ -22,7 +22,8 @@ config = {
     'droplr_domain: if you have a custom droplr domain, enter it here, otherwise leave it as d.pr ',
     'digest_timeline: if true will create a single entry for all tweets',
     'oauth_token and oauth_secret should be left blank and will be filled in by the plugin',
-    'twitter_entry_prefix allows customizing the entry title'], 
+    'twitter_entry_prefix allows customizing the entry title',
+    'single_digest creates a single log entry for both timeline and favorites'], 
   'twitter_users' => [],
   'save_favorites' => true,
   'save_images' => true,
@@ -35,7 +36,8 @@ config = {
   'save_retweets' => false,
   #'digest_favorites' => true, # Not implemented yet
   'digest_timeline' => true,
-  'twitter_entry_prefix' => ''
+  'twitter_entry_prefix' => '',
+  'single_digest' => false
 }
 $slog.register_plugin({ 'class' => 'TwitterLogger', 'config' => config })
 
@@ -61,7 +63,7 @@ class TwitterLogger < Slogger
     @twitter_config['twitter_tags'] ||= ''
     
     options = {}
-    options['content'] = "#{tweet[:text]}\n\n-- [@#{tweet[:screen_name]}](https://twitter.com/#{tweet[:screen_name]}/status/#{tweet[:id]})\n\n(#{@twitter_config['twitter_tags']})\n"
+    options['content'] = "#{tweet[:text]}\n\n-- [@#{tweet[:screen_name]} at #{tweet[:date].strftime("%l:%M%P %a, %b.%e %Y")}](https://twitter.com/#{tweet[:screen_name]}/status/#{tweet[:id]})\n\n(#{@twitter_config['twitter_tags']})\n"
     tweet_time = Time.parse(tweet[:date].to_s)
     options['datestamp'] = tweet_time.utc.iso8601
 
@@ -102,20 +104,20 @@ class TwitterLogger < Slogger
 
     end
 
-    images = []
+    # images = []
     tweets = []
     begin
       tweet_obj.each { |tweet|
         today = @timespan
         tweet_date = tweet.created_at
         break if tweet_date < today
-        tweet_text = tweet.text.gsub(/\n/,"\n\t")
+        tweet_text = "#{tweet.text}" # .gsub(/\n/,"\n\t")
         screen_name = user
 
         if type == 'favorites'
           # TODO: Prepend favorite's username/link
           screen_name = tweet.user.status.user.screen_name
-          tweet_text = "[#{screen_name}](http://twitter.com/#{screen_name}): #{tweet_text}"
+          tweet_text = "[@#{screen_name}](http://twitter.com/#{screen_name}): #{tweet_text}"
         end
 
         tweet_id = tweet.id
@@ -176,7 +178,7 @@ class TwitterLogger < Slogger
         end
 
         if tweet_id
-          tweets.push({:text => tweet_text, :date => tweet_date, :screen_name => screen_name, :images => tweet_images, :id => tweet_id})
+          tweets.push({:text => tweet_text, :date => tweet_date, :screen_name => screen_name, :images => tweet_images, :id => tweet_id, :favorited => tweet.favorited?})
         end
       }
       return tweets
@@ -257,42 +259,79 @@ class TwitterLogger < Slogger
 
       tweets = try { self.get_tweets(user, 'timeline') }
 
+
       if @twitter_config['save_favorites']
         favs = try { self.get_tweets(user, 'favorites')}
       else
         favs = []
       end
 
-      unless tweets.empty?
-        
-        if @twitter_config['digest_timeline']
+      if @twitter_config['single_digest']
+        tweets.concat(favs)
+
+        unless tweets.empty?
           dated_tweets = split_days(tweets)
           dated_tweets.each {|k,v|
-            content = "# #{@twitter_config['twitter_entry_prefix']}Tweets\n\n### Posts by @#{user} on #{Time.parse(k).strftime(@date_format)}\n\n"
-            content << digest_entry(v, tags)
+            day_favs = v.select { |t| t[:favorited] }
+            has_favs = day_favs.length > 0
+            has_tweets = (v.length - day_favs.length) > 0
+            #puts "Total: #{v.length}, Favs: #{day_favs.length}, Has favs: #{has_favs}, Has timeline: #{has_tweets}"
+            
+            content = "# #{@twitter_config['twitter_entry_prefix']}\n\n"
+            if has_favs
+              content << "### Favorites from @#{user} on #{Time.parse(k).strftime(@date_format)}\n\n"
+              content << digest_entry(day_favs, '')
+              content << "\n\n"
+            end
+
+            if has_tweets
+              content << "### Tweets by @#{user} on #{Time.parse(k).strftime(@date_format)}\n\n"
+              content << digest_entry(v.reject { |t| t[:favorited] }, '')
+            end
+            content << "\n#{tags}"
+            
+            #puts "Single digest:\n#{content}"
             sl.to_dayone({'content' => content, 'datestamp' => Time.parse(k).utc.iso8601})
             if @twitter_config['save_images']
               v.select {|t| !t[:images].empty? }.each {|t| self.single_entry(t) }
             end
           }
+          
+        end
+      else
+      
+        unless tweets.empty?
 
-        else
-          tweets.each do |t|
-            self.single_entry(t)
+          if @twitter_config['digest_timeline']
+            dated_tweets = split_days(tweets)
+            dated_tweets.each {|k,v|
+              content = "# #{@twitter_config['twitter_entry_prefix']}Tweets\n\n### Posts by @#{user} on #{Time.parse(k).strftime(@date_format)}\n\n"
+              content << digest_entry(v, tags)
+             sl.to_dayone({'content' => content, 'datestamp' => Time.parse(k).utc.iso8601})
+             if @twitter_config['save_images']
+               v.select {|t| !t[:images].empty? }.each {|t| self.single_entry(t) }
+             end
+            }
+
+          else
+            tweets.each do |t|
+              self.single_entry(t)
+            end
           end
+
+        end
+        unless favs.empty?
+          dated_tweets = split_days(favs)
+          dated_tweets.each {|k,v|
+            content = "# #{@twitter_config['twitter_entry_prefix']}Favorite tweets\n\n### Favorites from @#{user} on #{Time.parse(k).strftime(@date_format)}\n\n"
+            content << digest_entry(v, tags)
+#            sl.to_dayone({'content' => content, 'datestamp' => Time.parse(k).utc.iso8601})
+#            if @twitter_config['save_images_from_favorites']
+#              v.select {|t| !t[:images].empty? }.each {|t| self.single_entry(t) }
+#            end
+          }
         end
 
-      end
-      unless favs.empty?
-        dated_tweets = split_days(favs)
-        dated_tweets.each {|k,v|
-          content = "# #{@twitter_config['twitter_entry_prefix']}Favorite tweets\n\n### Favorites from @#{user} on #{Time.parse(k).strftime(@date_format)}\n\n"
-          content << digest_entry(v, tags)
-          sl.to_dayone({'content' => content, 'datestamp' => Time.parse(k).utc.iso8601})
-          if @twitter_config['save_images_from_favorites']
-            v.select {|t| !t[:images].empty? }.each {|t| self.single_entry(t) }
-          end
-        }
       end
     end
 
@@ -301,7 +340,8 @@ class TwitterLogger < Slogger
 
   def digest_entry(tweets, tags)
     tweets.reverse.map do |t|
-      "* [[#{t[:date].strftime(@time_format)}](https://twitter.com/#{t[:screen_name]}/status/#{t[:id]})] #{t[:text]}\n"
+      tweet_text = t[:text].gsub(/\n/,"\n\t")
+      "* [[#{t[:date].strftime(@time_format)}](https://twitter.com/#{t[:screen_name]}/status/#{t[:id]})] #{tweet_text}\n"
     end.join("\n") << "\n#{tags}"
   end
 
